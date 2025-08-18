@@ -253,7 +253,7 @@ def main(args=None):
     try:
         collector = NerfDataCollector()
         rclpy.spin(collector)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         collector.finish_collection()
     finally:
         try:
