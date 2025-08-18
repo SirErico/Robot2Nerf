@@ -11,6 +11,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
 from tf2_ros import TransformListener, Buffer
 from cv_bridge import CvBridge
+import signal
 
 
 class NerfDataCollector(Node):
@@ -20,6 +21,10 @@ class NerfDataCollector(Node):
     
     def __init__(self):
         super().__init__('nerf_data_collector')
+        
+        # Register signal handlers
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
         
         # Declare parameters
         self.declare_parameter('image_topic', '/rgb/image_raw')
@@ -242,9 +247,14 @@ class NerfDataCollector(Node):
             json.dump(nerf_data, f, indent=2)
         
         self.get_logger().info(f"Collection complete! Saved {self.frame_count} frames to {self.output_dir}")
-        
-        # Shutdown
-        rclpy.shutdown()
+
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals by saving data before exit."""
+        try:
+            self.get_logger().info(f"Received signal {signum}, saving data...")
+            self.finish_collection()
+        finally:
+            rclpy.shutdown()
 
 
 def main(args=None):
@@ -253,9 +263,16 @@ def main(args=None):
     try:
         collector = NerfDataCollector()
         rclpy.spin(collector)
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit, Exception) as e:
+        if not isinstance(e, (KeyboardInterrupt, SystemExit)):
+            collector.get_logger().error(f"Error during collection: {str(e)}")
         collector.finish_collection()
     finally:
+        try:
+            # In case we hit a different exception path
+            collector.finish_collection()
+        except:
+            pass
         try:
             rclpy.shutdown()
         except:
