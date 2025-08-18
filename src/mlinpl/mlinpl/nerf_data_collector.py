@@ -254,29 +254,39 @@ class NerfDataCollector(Node):
             self.get_logger().info(f"Received signal {signum}, saving data...")
             self.finish_collection()
         finally:
-            rclpy.shutdown()
+            try:
+                if rclpy.ok():
+                    rclpy.shutdown()
+            except Exception:
+                pass
 
 
 def main(args=None):
+    collector = None
     rclpy.init(args=args)
     
+    def cleanup():
+        """Ensure clean shutdown."""
+        if collector is not None:
+            try:
+                collector.finish_collection()
+            except Exception:
+                pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
+
     try:
         collector = NerfDataCollector()
-        rclpy.spin(collector)
-    except (KeyboardInterrupt, SystemExit, Exception) as e:
-        if not isinstance(e, (KeyboardInterrupt, SystemExit)):
-            collector.get_logger().error(f"Error during collection: {str(e)}")
-        collector.finish_collection()
+        rclpy.get_global_executor().add_node(collector)
+        while rclpy.ok():
+            rclpy.spin_once(collector)
+    except KeyboardInterrupt:
+        pass
     finally:
-        try:
-            # In case we hit a different exception path
-            collector.finish_collection()
-        except:
-            pass
-        try:
-            rclpy.shutdown()
-        except:
-            pass
+        cleanup()
 
 
 if __name__ == '__main__':
