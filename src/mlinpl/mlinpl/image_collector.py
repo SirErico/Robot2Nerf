@@ -9,13 +9,13 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
 
-class NerfDataCollector(Node):
+class ImageCollector(Node):
     """
     ROS2 Node that extracts images from a rosbag and saves them to a folder.
     """
 
     def __init__(self):
-        super().__init__('nerf_data_collector')
+        super().__init__('image_collector')
 
         # Declare parameters
         self.declare_parameter('image_topic', '/camera/color/image_raw')
@@ -41,7 +41,7 @@ class NerfDataCollector(Node):
             Image, self.image_topic, self.image_callback, 10
         )
 
-        self.get_logger().info(f"NeRF Data Collector initialized")
+        self.get_logger().info(f"Image Collector initialized")
         self.get_logger().info(f"Saving every {self.collection_rate}th frame to: {self.images_dir}")
 
     def image_callback(self, msg):
@@ -64,7 +64,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     try:
-        collector = NerfDataCollector()
+        collector = ImageCollector()
         rclpy.spin(collector)
     except KeyboardInterrupt:
         collector.get_logger().info(f"Collection stopped. Saved {collector.frame_count} frames to {collector.images_dir}")
