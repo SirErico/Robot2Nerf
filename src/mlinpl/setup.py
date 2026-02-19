@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'nerf_data_collector = mlinpl.nerf_data_collector:main'
+            'image_collector = mlinpl.image_collector:main',
+            'nerf_data_collector = mlinpl.nerf_data_collector:main',
         ],
     },
 )
