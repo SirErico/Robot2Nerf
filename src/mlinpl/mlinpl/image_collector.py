@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import cv2
 
 import rclpy
@@ -21,19 +22,33 @@ class ImageCollector(Node):
         self.declare_parameter('image_topic', '/camera/color/image_raw')
         self.declare_parameter('output_dir', 'nerf_data')
         self.declare_parameter('collection_rate', 10)
+        self.declare_parameter('rotate_180', False)
+        self.declare_parameter('use_frame_prefix', True)
 
         # Get parameters
         self.image_topic = self.get_parameter('image_topic').value
         self.output_dir = self.get_parameter('output_dir').value
         self.collection_rate = self.get_parameter('collection_rate').value
+        self.rotate_180 = self.get_parameter('rotate_180').value
+        self.use_frame_prefix = self.get_parameter('use_frame_prefix').value
 
         # Initialize
         self.bridge = CvBridge()
         self.frame_count = 0
         self.i = 0
 
-        # Create output directory
+        # Create/clear output directory
         self.images_dir = os.path.join(self.output_dir, "images")
+        if os.path.exists(self.images_dir):
+            try:
+                for entry in os.listdir(self.images_dir):
+                    path = os.path.join(self.images_dir, entry)
+                    if os.path.isfile(path) or os.path.islink(path):
+                        os.unlink(path)
+                    else:
+                        shutil.rmtree(path)
+            except Exception as e:
+                self.get_logger().warn(f"Failed to clear images directory: {e}")
         os.makedirs(self.images_dir, exist_ok=True)
 
         # Subscriber
@@ -49,8 +64,11 @@ class ImageCollector(Node):
         if self.i % self.collection_rate == 0:
             try:
                 cv_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-                image_filename = f"frame_{self.frame_count:06d}.jpg"
+                prefix = "frame_" if self.use_frame_prefix else ""
+                image_filename = f"{prefix}{self.frame_count:06d}.jpg"
                 image_path = os.path.join(self.images_dir, image_filename)
+                if self.rotate_180:
+                    cv_img = cv2.rotate(cv_img, cv2.ROTATE_180)
                 cv2.imwrite(image_path, cv_img)
                 self.frame_count += 1
                 self.get_logger().info(f"Saved frame {self.frame_count}: {image_filename}")

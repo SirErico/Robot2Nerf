@@ -80,3 +80,10 @@ ros_to_nerf = np.array([
   ]
 }
 ```
+
+
+
+For image collection:
+```bash
+run mlinpl image_collector --ros-args -p image_topic:=/camera/color/image_raw -p collection_rate:=1 -p use_frame_prefix:=false -p rotate_180:=false
+```
