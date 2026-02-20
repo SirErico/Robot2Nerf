@@ -22,6 +22,8 @@ setup(
         'console_scripts': [
             'image_collector = mlinpl.image_collector:main',
             'nerf_data_collector = mlinpl.nerf_data_collector:main',
+            'pointcloud_maker = mlinpl.pointcloud_maker:main',
+            'merge_pointclouds = mlinpl.pointcloud_maker:merge_main',
         ],
     },
 )
