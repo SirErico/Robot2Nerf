@@ -87,3 +87,18 @@ For image collection:
 ```bash
 run mlinpl image_collector --ros-args -p image_topic:=/camera/color/image_raw -p collection_rate:=1 -p use_frame_prefix:=false -p rotate_180:=false
 ```
+
+
+IMPORTANT CHANGE in `/usr/local/lib/python3.10/dist-packages/nerfstudio/process_data/colmap_utils.py`
+```python
+    # Feature extraction
+    feature_extractor_cmd = [
+        f"{colmap_cmd} feature_extractor",
+        f"--database_path {colmap_dir / 'database.db'}",
+        f"--image_path {image_dir}",
+        "--ImageReader.single_camera 1",
+        f"--ImageReader.camera_model {camera_model.value}",
+        "--ImageReader.camera_params 750.650,750.586,643.810,363.895,0.0752,-0.1066,-0.00023,0.00032",
+        f"--SiftExtraction.use_gpu {int(gpu)}",
+    ]
+```

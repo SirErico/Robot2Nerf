@@ -276,6 +276,18 @@ def main():
     print(f"  Interpolated frame range: {full_frame_indices[0]} - {full_frame_indices[-1]}")
     print(f"  Total trajectory length (interpolated): {full_arc[-1]:.4f} world units")
 
+    # Check for COLMAP frames that map beyond the valid robot frame range
+    max_robot_frame = full_frame_indices[-1]
+    colmap_robot_frames = colmap_frame_indices * args.subsample_step
+    valid_colmap_mask = colmap_robot_frames <= max_robot_frame
+    n_valid = int(valid_colmap_mask.sum())
+    n_orphaned = len(colmap_frame_indices) - n_valid
+    if n_orphaned > 0:
+        print(f"  WARNING: {n_orphaned}/{len(colmap_frame_indices)} COLMAP frames map to robot frames "
+              f"beyond {max_robot_frame} (total_frames={args.total_frames}) and are outside the "
+              f"interpolation range.")
+        print(f"    Consider adjusting --subsample_step or --total_frames.")
+
     # --- Step 4: Resample by equal distance ---
     print(f"\nResampling by equal arc-length...")
     selected_frames, selected_positions, sample_arcs = resample_by_distance(
@@ -352,14 +364,30 @@ def main():
                 opacity=0.4,
             ))
 
-            # COLMAP keyframes (small blue dots)
+            # COLMAP keyframes — only those within the interpolation range
+            valid_pos = positions[valid_colmap_mask]
+            valid_idx = colmap_frame_indices[valid_colmap_mask]
             fig.add_trace(go.Scatter3d(
-                x=positions[:, 0], y=positions[:, 1], z=positions[:, 2],
+                x=valid_pos[:, 0], y=valid_pos[:, 1], z=valid_pos[:, 2],
                 mode="markers",
                 marker=dict(size=2, color="blue"),
-                name=f"COLMAP keyframes ({len(positions)})",
-                text=[f"COLMAP frame {i}" for i in colmap_frame_indices],
+                name=f"COLMAP keyframes ({len(valid_pos)})",
+                text=[f"COLMAP frame {i} (robot {i * args.subsample_step})" for i in valid_idx],
             ))
+
+            # Out-of-range COLMAP keyframes (dimmed, if any)
+            if n_orphaned > 0:
+                orphan_pos = positions[~valid_colmap_mask]
+                orphan_idx = colmap_frame_indices[~valid_colmap_mask]
+                fig.add_trace(go.Scatter3d(
+                    x=orphan_pos[:, 0], y=orphan_pos[:, 1], z=orphan_pos[:, 2],
+                    mode="markers",
+                    marker=dict(size=2, color="gray", symbol="diamond"),
+                    name=f"COLMAP out-of-range ({n_orphaned})",
+                    text=[f"COLMAP frame {i} (robot {i * args.subsample_step} — beyond {max_robot_frame})"
+                          for i in orphan_idx],
+                    opacity=0.3,
+                ))
 
             # Resampled frames (red crosses)
             fig.add_trace(go.Scatter3d(
@@ -408,8 +436,13 @@ def main():
             ax1 = fig.add_subplot(121, projection="3d")
             ax1.plot(full_positions[:, 0], full_positions[:, 1], full_positions[:, 2],
                      "b-", alpha=0.3, label="Full interpolated traj")
-            ax1.scatter(positions[:, 0], positions[:, 1], positions[:, 2],
-                        c="blue", s=5, alpha=0.5, label=f"COLMAP ({len(positions)})")
+            valid_pos = positions[valid_colmap_mask]
+            ax1.scatter(valid_pos[:, 0], valid_pos[:, 1], valid_pos[:, 2],
+                        c="blue", s=5, alpha=0.5, label=f"COLMAP ({len(valid_pos)})")
+            if n_orphaned > 0:
+                orphan_pos = positions[~valid_colmap_mask]
+                ax1.scatter(orphan_pos[:, 0], orphan_pos[:, 1], orphan_pos[:, 2],
+                            c="gray", s=5, alpha=0.2, label=f"Out-of-range ({n_orphaned})")
             ax1.scatter(selected_positions[:, 0], selected_positions[:, 1], selected_positions[:, 2],
                         c="red", s=20, marker="x", label=f"Resampled ({len(selected_positions)})")
             ax1.set_xlabel("X")
